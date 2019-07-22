@@ -11,26 +11,43 @@ import javax.servlet.http.HttpServletResponse;
 import javax.servlet.http.HttpSession;
 
 import fr.tp4.beans.Client;
+import fr.tp4.dao.ClientDao;
+import fr.tp4.dao.DAOException;
+import fr.tp4.dao.DAOFactory;
 
 public class SupprimerClient extends HttpServlet {
-
-	public static final String PARAM_NOM_CLIENT = "nomClient";
+	public static final String CONF_DAO_FACTORY = "daofactory";
+	public static final String PARAM_ID_CLIENT = "idClient";
 	public static final String SESSION_CLIENTS = "clients";
 
-	public static final String VUE = "/listerClients";
+	public static final String VUE = "/listeClients";
+
+	private ClientDao clientDao;
+
+	public void init() throws ServletException {
+		/* Récupération d'une instance de notre DAO Utilisateur */
+		this.clientDao = ((DAOFactory) getServletContext().getAttribute(CONF_DAO_FACTORY)).getClientDao();
+	}
 
 	public void doGet(HttpServletRequest request, HttpServletResponse response) throws ServletException, IOException {
 		/* Récupération du paramètre */
-		String nomClient = getValeurParametre(request, PARAM_NOM_CLIENT);
+		String idClient = getValeurParametre(request, PARAM_ID_CLIENT);
+		Long id = Long.parseLong(idClient);
 
 		/* Récupération de la Map des clients enregistrés en session */
 		HttpSession session = request.getSession();
-		Map<String, Client> clients = (HashMap<String, Client>) session.getAttribute(SESSION_CLIENTS);
+		Map<Long, Client> clients = (HashMap<Long, Client>) session.getAttribute(SESSION_CLIENTS);
 
-		/* Si le nom du client et la Map des clients ne sont pas vides */
-		if (nomClient != null && clients != null) {
-			/* Alors suppression du client de la Map */
-			clients.remove(nomClient);
+		/* Si l'id du client et la Map des clients ne sont pas vides */
+		if (id != null && clients != null) {
+			try {
+				/* Alors suppression du client de la BDD */
+				clientDao.supprimer(clients.get(id));
+				/* Puis suppression du client de la Map */
+				clients.remove(id);
+			} catch (DAOException e) {
+				e.printStackTrace();
+			}
 			/* Et remplacement de l'ancienne Map en session par la nouvelle */
 			session.setAttribute(SESSION_CLIENTS, clients);
 		}

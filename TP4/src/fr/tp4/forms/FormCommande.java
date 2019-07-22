@@ -7,11 +7,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpSession;
 
 import org.joda.time.DateTime;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
 
 import fr.tp4.beans.Client;
 import fr.tp4.beans.Commande;
+import fr.tp4.dao.ClientDao;
+import fr.tp4.dao.CommandeDao;
+import fr.tp4.dao.DAOException;
 
 public final class FormCommande {
 	private static final String CHAMP_CHOIX_CLIENT = "choixNouveauClient";
@@ -29,6 +30,13 @@ public final class FormCommande {
 
 	private String resultat;
 	private Map<String, String> erreurs = new HashMap<String, String>();
+	private ClientDao clientDao;
+	private CommandeDao commandeDao;
+
+	public FormCommande(ClientDao clientDao, CommandeDao commandeDao) {
+		this.clientDao = clientDao;
+		this.commandeDao = commandeDao;
+	}
 
 	public Map<String, String> getErreurs() {
 		return erreurs;
@@ -38,7 +46,7 @@ public final class FormCommande {
 		return resultat;
 	}
 
-	public Commande creationCommande(HttpServletRequest request, String chemin) {
+	public Commande creerCommande(HttpServletRequest request, String chemin) {
 		Client client;
 		/*
 		 * Si l'utilisateur choisit un client déjà existant, pas de validation à
@@ -46,11 +54,18 @@ public final class FormCommande {
 		 */
 		String choixNouveauClient = getValeurChamp(request, CHAMP_CHOIX_CLIENT);
 		if (ANCIEN_CLIENT.equals(choixNouveauClient)) {
-			/* Récupération du nom du client choisi */
-			String nomAncienClient = getValeurChamp(request, CHAMP_LISTE_CLIENTS);
+			/* Récupération de l'id du client choisi */
+			String idAncienClient = getValeurChamp(request, CHAMP_LISTE_CLIENTS);
+			Long id = null;
+			try {
+				id = Long.parseLong(idAncienClient);
+			} catch (NumberFormatException e) {
+				setErreur(CHAMP_CHOIX_CLIENT, "Client inconnu, merci d'utiliser le formulaire prévu à cet effet.");
+				id = 0L;
+			}
 			/* Récupération de l'objet client correspondant dans la session */
 			HttpSession session = request.getSession();
-			client = ((Map<String, Client>) session.getAttribute(SESSION_CLIENTS)).get(nomAncienClient);
+			client = ((Map<Long, Client>) session.getAttribute(SESSION_CLIENTS)).get(id);
 		} else {
 			/*
 			 * Sinon on garde l'ancien mode, pour la validation des champs.
@@ -60,8 +75,8 @@ public final class FormCommande {
 			 * requête courante à l'objet métier existant et de récupérer l'objet Client
 			 * créé.
 			 */
-			FormClient clientForm = new FormClient();
-			client = clientForm.creationClient(request, chemin);
+			FormClient clientForm = new FormClient(clientDao);
+			client = clientForm.creerClient(request, chemin);
 
 			/*
 			 * Et très important, il ne faut pas oublier de récupérer le contenu de la map
@@ -76,12 +91,8 @@ public final class FormCommande {
 		 * spécifiques à une commande.
 		 */
 
-		/*
-		 * Récupération et conversion de la date en String selon le format choisi.
-		 */
+		/* Récupération de la date dans un DateTime Joda. */
 		DateTime dt = new DateTime();
-		DateTimeFormatter formatter = DateTimeFormat.forPattern(FORMAT_DATE);
-		String date = dt.toString(formatter);
 
 		String montant = getValeurChamp(request, CHAMP_MONTANT);
 		String modePaiement = getValeurChamp(request, CHAMP_MODE_PAIEMENT);
@@ -91,8 +102,40 @@ public final class FormCommande {
 
 		Commande commande = new Commande();
 
-		commande.setClient(client);
+		try {
+			traiterClient(client, commande);
 
+			commande.setDate(dt);
+
+			traiterMontant(montant, commande);
+			traiterModePaiement(modePaiement, commande);
+			traiterStatutPaiement(statutPaiement, commande);
+			traiterModeLivraison(modeLivraison, commande);
+			traiterStatutLivraison(statutLivraison, commande);
+
+			if (erreurs.isEmpty()) {
+				commandeDao.creer(commande);
+				resultat = "Succès de la création de la commande.";
+			} else {
+				resultat = "Échec de la création de la commande.";
+			}
+		} catch (DAOException e) {
+			setErreur("imprévu", "Erreur imprévue lors de la création.");
+			resultat = "Échec de la création de la commande : une erreur imprévue est survenue, merci de réessayer dans quelques instants.";
+			e.printStackTrace();
+		}
+
+		return commande;
+	}
+
+	private void traiterClient(Client client, Commande commande) {
+		if (client == null) {
+			setErreur(CHAMP_CHOIX_CLIENT, "Client inconnu, merci d'utiliser le formulaire prévu à cet effet.");
+		}
+		commande.setClient(client);
+	}
+
+	private void traiterMontant(String montant, Commande commande) {
 		double valeurMontant = -1;
 		try {
 			valeurMontant = validationMontant(montant);
@@ -100,43 +143,42 @@ public final class FormCommande {
 			setErreur(CHAMP_MONTANT, e.getMessage());
 		}
 		commande.setMontant(valeurMontant);
+	}
 
-		commande.setDate(date);
-
+	private void traiterModePaiement(String modePaiement, Commande commande) {
 		try {
 			validationModePaiement(modePaiement);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_MODE_PAIEMENT, e.getMessage());
 		}
 		commande.setModePaiement(modePaiement);
+	}
 
+	private void traiterStatutPaiement(String statutPaiement, Commande commande) {
 		try {
 			validationStatutPaiement(statutPaiement);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_STATUT_PAIEMENT, e.getMessage());
 		}
 		commande.setStatutPaiement(statutPaiement);
+	}
 
+	private void traiterModeLivraison(String modeLivraison, Commande commande) {
 		try {
 			validationModeLivraison(modeLivraison);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_MODE_LIVRAISON, e.getMessage());
 		}
 		commande.setModeLivraison(modeLivraison);
+	}
 
+	private void traiterStatutLivraison(String statutLivraison, Commande commande) {
 		try {
 			validationStatutLivraison(statutLivraison);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_STATUT_LIVRAISON, e.getMessage());
 		}
 		commande.setStatutLivraison(statutLivraison);
-
-		if (erreurs.isEmpty()) {
-			resultat = "Succès de la création de la commande.";
-		} else {
-			resultat = "Échec de la création de la commande.";
-		}
-		return commande;
 	}
 
 	private double validationMontant(String montant) throws FormValidationException {

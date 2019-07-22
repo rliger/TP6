@@ -1,8 +1,10 @@
 package fr.tp4.beans;
 
-public class Client {
-	/* Propriétés du bean */
-	private static int id = 0;
+import java.io.Serializable;
+
+public class Client implements Serializable {
+
+	private Long id;
 	private String nom;
 	private String prenom;
 	private String adresse;
@@ -10,20 +12,16 @@ public class Client {
 	private String email;
 	private String image;
 
-	public String getImage() {
-		return image;
+	public void setId(Long id) {
+		this.id = id;
 	}
 
-	public void setImage(String image) {
-		this.image = image;
+	public Long getId() {
+		return id;
 	}
 
 	public void setNom(String nom) {
 		this.nom = nom;
-	}
-
-	public Client() {
-		this.id++;
 	}
 
 	public String getNom() {
@@ -46,12 +44,12 @@ public class Client {
 		return adresse;
 	}
 
-	public String getTelephone() {
-		return telephone;
-	}
-
 	public void setTelephone(String telephone) {
 		this.telephone = telephone;
+	}
+
+	public String getTelephone() {
+		return telephone;
 	}
 
 	public void setEmail(String email) {
@@ -62,7 +60,11 @@ public class Client {
 		return email;
 	}
 
-	public int getId() {
-		return id;
+	public void setImage(String image) {
+		this.image = image;
+	}
+
+	public String getImage() {
+		return image;
 	}
 }

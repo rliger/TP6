@@ -16,129 +16,163 @@ import javax.servlet.http.Part;
 
 import eu.medsea.mimeutil.MimeUtil;
 import fr.tp4.beans.Client;
+import fr.tp4.dao.ClientDao;
+import fr.tp4.dao.DAOException;
 
 public final class FormClient {
-	public static final String CHAMP_NOM = "nomClient";
-	public static final String CHAMP_PRENOM = "prenomClient";
-	public static final String CHAMP_ADRESSE = "adresseClient";
-	public static final String CHAMP_TELEPHONE = "telephoneClient";
-	public static final String CHAMP_EMAIL = "emailClient";
+	private static final String CHAMP_NOM = "nomClient";
+	private static final String CHAMP_PRENOM = "prenomClient";
+	private static final String CHAMP_ADRESSE = "adresseClient";
+	private static final String CHAMP_TELEPHONE = "telephoneClient";
+	private static final String CHAMP_EMAIL = "emailClient";
 	private static final String CHAMP_IMAGE = "imageClient";
 
 	private static final int TAILLE_TAMPON = 10240; // 10ko
 
 	private String resultat;
 	private Map<String, String> erreurs = new HashMap<String, String>();
+	private ClientDao clientDao;
 
-	public String getResultat() {
-		return resultat;
+	public FormClient(ClientDao clientDao) {
+		this.clientDao = clientDao;
 	}
 
 	public Map<String, String> getErreurs() {
 		return erreurs;
 	}
 
-	public Client creationClient(HttpServletRequest request, String chemin) {
+	public String getResultat() {
+		return resultat;
+	}
+
+	public Client creerClient(HttpServletRequest request, String chemin) {
 		String nom = getValeurChamp(request, CHAMP_NOM);
 		String prenom = getValeurChamp(request, CHAMP_PRENOM);
 		String adresse = getValeurChamp(request, CHAMP_ADRESSE);
 		String telephone = getValeurChamp(request, CHAMP_TELEPHONE);
 		String email = getValeurChamp(request, CHAMP_EMAIL);
-		String image = null;
 
 		Client client = new Client();
 
+		traiterNom(nom, client);
+		traiterPrenom(prenom, client);
+		traiterAdresse(adresse, client);
+		traiterTelephone(telephone, client);
+		traiterEmail(email, client);
+		traiterImage(client, request, chemin);
+
+		try {
+			if (erreurs.isEmpty()) {
+				clientDao.creer(client);
+				resultat = "Succès de la création du client.";
+			} else {
+				resultat = "Échec de la création du client.";
+			}
+		} catch (DAOException e) {
+			setErreur("imprévu", "Erreur imprévue lors de la création.");
+			resultat = "Échec de la création du client : une erreur imprévue est survenue, merci de réessayer dans quelques instants.";
+			e.printStackTrace();
+		}
+
+		return client;
+	}
+
+	private void traiterNom(String nom, Client client) {
 		try {
 			validationNom(nom);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_NOM, e.getMessage());
 		}
 		client.setNom(nom);
+	}
 
+	private void traiterPrenom(String prenom, Client client) {
 		try {
 			validationPrenom(prenom);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_PRENOM, e.getMessage());
 		}
 		client.setPrenom(prenom);
+	}
 
+	private void traiterAdresse(String adresse, Client client) {
 		try {
 			validationAdresse(adresse);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_ADRESSE, e.getMessage());
 		}
 		client.setAdresse(adresse);
+	}
 
+	private void traiterTelephone(String telephone, Client client) {
 		try {
 			validationTelephone(telephone);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_TELEPHONE, e.getMessage());
 		}
 		client.setTelephone(telephone);
+	}
 
+	private void traiterEmail(String email, Client client) {
 		try {
 			validationEmail(email);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_EMAIL, e.getMessage());
 		}
 		client.setEmail(email);
+	}
 
-		if (erreurs.isEmpty()) {
-			resultat = "Succès de Création du Client.";
-		} else {
-			resultat = "Le formulaire comporte des erreurs.";
-		}
-
+	private void traiterImage(Client client, HttpServletRequest request, String chemin) {
+		String image = null;
 		try {
 			image = validationImage(request, chemin);
 		} catch (FormValidationException e) {
 			setErreur(CHAMP_IMAGE, e.getMessage());
 		}
 		client.setImage(image);
-
-		return client;
 	}
 
 	private void validationNom(String nom) throws FormValidationException {
-		if (nom == null || nom.length() < 2) {
-			throw new FormValidationException("Le nom du client doit contenir au moins 2 caractères.");
+		if (nom != null) {
+			if (nom.length() < 2) {
+				throw new FormValidationException("Le nom d'utilisateur doit contenir au moins 2 caractères.");
+			}
+		} else {
+			throw new FormValidationException("Merci d'entrer un nom d'utilisateur.");
 		}
 	}
 
 	private void validationPrenom(String prenom) throws FormValidationException {
 		if (prenom != null && prenom.length() < 2) {
-			throw new FormValidationException("Le prénom du client doit contenir au moins 2 caractères.");
+			throw new FormValidationException("Le prénom d'utilisateur doit contenir au moins 2 caractères.");
 		}
 	}
 
 	private void validationAdresse(String adresse) throws FormValidationException {
-		if (adresse == null || adresse.length() < 10) {
-			throw new FormValidationException("L'adresse du client doit contenir au moins 10 caractères.");
+		if (adresse != null) {
+			if (adresse.length() < 10) {
+				throw new FormValidationException("L'adresse de livraison doit contenir au moins 10 caractères.");
+			}
+		} else {
+			throw new FormValidationException("Merci d'entrer une adresse de livraison.");
+		}
+	}
+
+	private void validationTelephone(String telephone) throws FormValidationException {
+		if (telephone != null) {
+			if (!telephone.matches("^\\d+$")) {
+				throw new FormValidationException("Le numéro de téléphone doit uniquement contenir des chiffres.");
+			} else if (telephone.length() < 4) {
+				throw new FormValidationException("Le numéro de téléphone doit contenir au moins 4 chiffres.");
+			}
+		} else {
+			throw new FormValidationException("Merci d'entrer un numéro de téléphone.");
 		}
 	}
 
 	private void validationEmail(String email) throws FormValidationException {
-		if (email != null) {
-			if (!email.matches("([^.@]+)(\\.[^.@]+)*@([^.@]+\\.)+([^.@]+)")) {
-				throw new FormValidationException("Merci de saisir une adresse mail valide.");
-			}
-		}
-	}
-
-	private boolean estUnEntier(String telephone) {
-		try {
-			Integer.parseInt(telephone);
-		} catch (NumberFormatException e) {
-			return false;
-		}
-
-		return true;
-	}
-
-	private void validationTelephone(String telephone) throws FormValidationException {
-		if (telephone == null || telephone.length() < 4 || !estUnEntier(telephone)) {
-			throw new FormValidationException(
-					"Le numéro de téléphone client doit contenir des numéros et au minimum 4.");
+		if (email != null && !email.matches("([^.@]+)(\\.[^.@]+)*@([^.@]+\\.)+([^.@]+)")) {
+			throw new FormValidationException("Merci de saisir une adresse mail valide.");
 		}
 	}
 
@@ -182,7 +216,7 @@ public final class FormClient {
 				 * chaîne "image"
 				 */
 				if (mimeTypes.toString().startsWith("image")) {
-					/* Ecriture du fichier sur le disque */
+					/* Écriture du fichier sur le disque */
 					ecrireFichier(contenuFichier, nomFichier, chemin);
 				} else {
 					throw new FormValidationException("Le fichier envoyé doit être une image.");
@@ -231,10 +265,17 @@ public final class FormClient {
 		if (valeur == null || valeur.trim().length() == 0) {
 			return null;
 		} else {
-			return valeur.trim();
+			return valeur;
 		}
 	}
 
+	/*
+	 * Méthode utilitaire qui a pour unique but d'analyser l'en-tête
+	 * "content-disposition", et de vérifier si le paramètre "filename" y est
+	 * présent. Si oui, alors le champ traité est de type File et la méthode
+	 * retourne son nom, sinon il s'agit d'un champ de formulaire classique et la
+	 * méthode retourne null.
+	 */
 	private static String getNomFichier(Part part) {
 		/* Boucle sur chacun des paramètres de l'en-tête "content-disposition". */
 		for (String contentDisposition : part.getHeader("content-disposition").split(";")) {
@@ -286,5 +327,4 @@ public final class FormClient {
 			}
 		}
 	}
-
 }
