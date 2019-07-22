@@ -20,7 +20,7 @@ public class SupprimerCommande extends HttpServlet {
 	public static final String PARAM_ID_COMMANDE = "idCommande";
 	public static final String SESSION_COMMANDES = "commandes";
 
-	public static final String VUE = "/listeCommandes";
+	public static final String VUE = "/listerCommandes";
 
 	private CommandeDao commandeDao;
 

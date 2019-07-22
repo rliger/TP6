@@ -20,7 +20,7 @@ public class SupprimerClient extends HttpServlet {
 	public static final String PARAM_ID_CLIENT = "idClient";
 	public static final String SESSION_CLIENTS = "clients";
 
-	public static final String VUE = "/listeClients";
+	public static final String VUE = "/listerClients";
 
 	private ClientDao clientDao;
 

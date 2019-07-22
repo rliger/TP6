@@ -90,7 +90,7 @@
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>ListerClients</servlet-name>
-		<url-pattern>/listeClients</url-pattern>
+		<url-pattern>/listerClients</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>SupprimerClient</servlet-name>
@@ -102,7 +102,7 @@
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>ListerCommandes</servlet-name>
-		<url-pattern>/listeCommandes</url-pattern>
+		<url-pattern>/listerCommandes</url-pattern>
 	</servlet-mapping>
 	<servlet-mapping>
 		<servlet-name>SupprimerCommande</servlet-name>
